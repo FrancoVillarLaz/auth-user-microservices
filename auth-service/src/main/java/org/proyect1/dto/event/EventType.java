@@ -1,0 +1,12 @@
+package org.proyect1.dto.event;
+
+public enum EventType {
+    USER_REGISTERED,
+    USER_LOGGED_IN,
+    USER_LOGGED_OUT,
+    TOKEN_REFRESHED,
+    LOGIN_FAILED,
+    REGISTRATION_FAILED,
+    USER_CREATION_SUCCESS,
+    USER_CREATION_FAILED
+}

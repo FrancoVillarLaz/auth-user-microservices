@@ -1,0 +1,322 @@
+---
+openapi: 3.1.0
+components:
+  schemas:
+    IntrospectRequest:
+      type: object
+      required:
+      - Token
+      properties:
+        Token:
+          type: string
+          pattern: \S
+    LoginRequest:
+      type: object
+      required:
+      - identifier
+      - password
+      properties:
+        identifier:
+          type: string
+          pattern: \S
+        password:
+          type: string
+          minLength: 6
+          pattern: \S
+    RefreshRequest:
+      type: object
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          pattern: \S
+    RegisterRequest:
+      type: object
+      required:
+      - username
+      - email
+      - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: \S
+        email:
+          type: string
+          pattern: \S
+        password:
+          type: string
+          minLength: 6
+          pattern: \S
+        SuscriptionId:
+          type:
+          - integer
+          - "null"
+          format: int64
+    ValidateSubscriptionsRequest:
+      type: object
+      required:
+      - idSuscripciones
+      properties:
+        idSuscripciones:
+          type: array
+          items:
+            type: string
+  securitySchemes:
+    SecurityScheme:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authentication
+paths:
+  /api/auth-service/health:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+      summary: Health
+      tags:
+      - Auth Resource
+  /api/auth-service/introspect:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntrospectRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+        "400":
+          description: Bad Request
+      summary: Introspect
+      tags:
+      - Auth Resource
+      security:
+      - SecurityScheme: []
+  /api/auth-service/login:
+    post:
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Login
+      tags:
+      - Auth Resource
+  /api/auth-service/logout:
+    post:
+      parameters:
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+        "400":
+          description: Bad Request
+      summary: Logout
+      tags:
+      - Auth Resource
+      security:
+      - SecurityScheme:
+        - USER
+        - ADMIN
+  /api/auth-service/me:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      summary: Get User Info
+      tags:
+      - Auth Resource
+      security:
+      - SecurityScheme: []
+  /api/auth-service/refresh:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Refresh
+      tags:
+      - Auth Resource
+  /api/auth-service/register:
+    post:
+      parameters:
+      - name: X-Forwarded-For
+        in: header
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Register
+      tags:
+      - Auth Resource
+  /api/auth-service/subscriptions/check/{idSuscripcion}:
+    get:
+      parameters:
+      - name: idSuscripcion
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      summary: Check Subscription
+      tags:
+      - Subscription Validator Resource
+      security:
+      - SecurityScheme:
+        - USER
+        - ADMIN
+  /api/auth-service/subscriptions/my-subscriptions:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      summary: Get My Subscriptions
+      tags:
+      - Subscription Validator Resource
+      security:
+      - SecurityScheme:
+        - USER
+        - ADMIN
+  /api/auth-service/subscriptions/validate:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateSubscriptionsRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+        "400":
+          description: Bad Request
+      summary: Validate Subscriptions
+      tags:
+      - Subscription Validator Resource
+      security:
+      - SecurityScheme:
+        - USER
+        - ADMIN
+  /api/auth-service/validate:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntrospectRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Validate
+      tags:
+      - Auth Resource
+info:
+  title: auth-service API
+  version: 1.0.0

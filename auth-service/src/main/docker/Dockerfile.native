@@ -1,0 +1,22 @@
+####
+# Dockerfile para ejecutar el binario nativo de GraalVM
+# Este Dockerfile usa una imagen base minimal para máxima eficiencia
+####
+
+FROM quay.io/quarkus/quarkus-micro-image:2.0
+WORKDIR /work/
+
+# Copiar el binario nativo
+COPY target/*-runner /work/application
+
+# Configurar permisos
+RUN chmod 775 /work/application
+
+# Exponer puerto
+EXPOSE 8080
+
+# Ejecutar como usuario no-root
+USER 1001
+
+# Comando de ejecución
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]

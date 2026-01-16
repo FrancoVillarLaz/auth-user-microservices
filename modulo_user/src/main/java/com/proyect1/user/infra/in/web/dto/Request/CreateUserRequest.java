@@ -1,0 +1,54 @@
+package com.proyect1.user.infra.in.web.dto.Request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * DTO para crear un usuario
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreateUserRequest {
+
+    @NotBlank(message = "La suscripcion es obligatoria")
+    private String subscriptionId;
+
+    @NotNull(message = "El userId es obligatorio")
+    private Long userId;
+
+    @NotBlank(message = "El nombre es obligatorio")
+    @Size(max = 100, message = "El nombre no puede exceder 100 caracteres")
+    private String nombre;
+
+    @NotBlank(message = "El apellido es obligatorio")
+    @Size(max = 100, message = "El apellido no puede exceder 100 caracteres")
+    private String apellido;
+
+    @Size(max = 50, message = "El tipo interno no puede exceder 50 caracteres")
+    private String internalType;
+
+    @Size(max = 50, message = "El número de documento no puede exceder 50 caracteres")
+    private String numeroDocumento;
+
+    private Long establecimientoId;
+
+    @Size(max = 50, message = "La manzana no puede exceder 50 caracteres")
+    private String manzana;
+
+    @Size(max = 50, message = "El lote no puede exceder 50 caracteres")
+    private String lote;
+
+    @Size(max = 20, message = "El teléfono no puede exceder 20 caracteres")
+    private String telefono;
+
+    private Boolean isActive;
+
+    private String condicionIvaId;
+
+
+}

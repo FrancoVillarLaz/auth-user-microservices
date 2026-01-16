@@ -1,0 +1,203 @@
+version: '3.8'
+
+x-base-env: &base-env
+  SERVER_PORT: 8080
+  # Referencias a base de datos y Kafka genéricas
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_service_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+  SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-db_user}
+  SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-db_password_placeholder}
+  SPRING_JPA_HIBERNATE_DDL_AUTO: update 
+  SPRING_JPA_SHOW_SQL: false
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password_placeholder}
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8080/eureka/
+  CORS_ALLOWED_ORIGIN: '*'
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+services:
+  # Infraestructura
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Se usa la variable de entorno para el comando de inicio
+    command: >
+      sh -c "redis-server --appendonly yes --requirepass $${REDIS_PASSWORD:-redis_password_placeholder}"
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: auth_service_db
+      MYSQL_USER: ${DB_USERNAME:-db_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-db_password_placeholder}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password_placeholder}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${DB_ROOT_PASSWORD:-root_password_placeholder}"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - app-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8082:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - app-network
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8081:8080"
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+  # Servicios de la aplicación
+  eureka-server:
+    build:
+      context: ./EurekaServer
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8080"
+    environment:
+      <<: *base-env
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  gateway-service:
+    build:
+      context: ./Gateway
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    ports:
+      - "8100:8080"
+    environment:
+      <<: *base-env
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # Auth Service (Quarkus)
+  auth-service:
+    build:
+      context: ./auth-service/
+      dockerfile: Dockerfile.native
+    container_name: auth-service
+    ports:
+      - "8102:8080"
+    environment:
+      <<: *base-env
+      # Secretos anonimizados
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_key_placeholder}
+      JWT_EXPIRATION: 86400000
+      JWT_REFRESH_EXPIRATION: 604800000
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/auth_service_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      QUARKUS_DATASOURCE_USERNAME: ${DB_USERNAME:-db_user}
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:-db_password_placeholder}
+      QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION: update
+      QUARKUS_REDIS_HOSTS: redis://:${REDIS_PASSWORD:-redis_password_placeholder}@redis:6379
+    depends_on:
+      gateway-service:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-network
+
+  # User Service
+  user-service:
+    build:
+      context: ./modulo_user
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8083:8083"
+    environment:
+      <<: *base-env
+      SERVER_PORT: 8083
+    depends_on:
+      gateway-service:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+volumes:
+  redis_data:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
